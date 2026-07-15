@@ -3,3 +3,7 @@ __pycache__/
 *.pyc
 .env
 backend/cloned_repo/
+.pytest_cache/
+.data/
+.venv/
+cloned_repo/

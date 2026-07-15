@@ -25,8 +25,9 @@ def chunk_python_file(file_path: str) -> list[dict]:
     source_lines = source.splitlines()
     chunks = []
 
-    for node in ast.walk(tree):
-        # We only care about top-level functions and classes
+    # Avoid returning methods and nested functions separately: their text is
+    # already included inside the enclosing class/function chunk.
+    for node in tree.body:
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
             start_line = node.lineno
             end_line = getattr(node, "end_lineno", start_line)

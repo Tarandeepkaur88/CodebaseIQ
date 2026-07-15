@@ -2,6 +2,17 @@ import os
 import shutil
 import git
 
+
+def normalize_repo_url(repo_url: str) -> str:
+    """Accept a Git URL or a browser-style GitHub repository address."""
+    repo_url = repo_url.strip()
+    if not repo_url:
+        raise ValueError("Repository URL cannot be empty.")
+    if "://" not in repo_url and not repo_url.startswith("git@"):
+        return f"https://{repo_url}"
+    return repo_url
+
+
 def clone_repo(repo_url: str, clone_dir: str = "cloned_repo") -> str:
     """
     Clones a GitHub repo to a local folder.
@@ -11,6 +22,7 @@ def clone_repo(repo_url: str, clone_dir: str = "cloned_repo") -> str:
     if os.path.exists(clone_dir):
         shutil.rmtree(clone_dir)
 
+    repo_url = normalize_repo_url(repo_url)
     print(f"Cloning {repo_url} into {clone_dir} ...")
     git.Repo.clone_from(repo_url, clone_dir)
     print("Clone complete.")

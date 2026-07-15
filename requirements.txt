@@ -1,0 +1,8 @@
+# ChromaDB 1.x provides current Windows/Python 3.13 wheels; 0.6 falls back to
+# compiling chroma-hnswlib locally, which requires Microsoft C++ Build Tools.
+chromadb>=1.0,<2.0
+fastapi>=0.110,<1.0
+GitPython>=3.1,<4.0
+sentence-transformers>=3.0,<4.0
+uvicorn[standard]>=0.29,<1.0
+pytest>=8.0,<9.0
