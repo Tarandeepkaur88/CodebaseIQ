@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 
 from backend.services.indexer import RepositoryIndexer
 from backend.services.qa_agent import answer_question  # <-- NEW IMPORT
+from backend.services.bug_agent import analyze_code
 
 app = FastAPI(title="CodebaseIQ", version="0.1.0")
 logger = logging.getLogger(__name__)
@@ -19,6 +20,10 @@ class IndexRequest(BaseModel):
 class QueryRequest(IndexRequest):
     question: str = Field(min_length=1)
     limit: int = Field(default=5, ge=1, le=20)
+
+
+class AnalysisRequest(QueryRequest):
+    limit: int = Field(default=8, ge=1, le=20)
 
 
 @app.get("/health")
@@ -51,4 +56,21 @@ def query_repository(request: QueryRequest) -> dict:
         raise HTTPException(
             status_code=500,
             detail=f"Could not answer question: {exc}"
+        ) from exc
+
+
+@app.post("/analyze")
+def analyze_repository(request: AnalysisRequest) -> dict:
+    """Review retrieved repository code for likely issues."""
+    try:
+        return analyze_code(
+            repo_url=request.repo_url,
+            question=request.question,
+            limit=request.limit,
+        )
+    except Exception as exc:
+        logger.exception("Repository analysis failed for %s", request.repo_url)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Could not analyze repository: {exc}",
         ) from exc

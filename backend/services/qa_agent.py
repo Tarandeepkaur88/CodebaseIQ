@@ -7,10 +7,6 @@ from backend.services.search import RepositorySearch
 # Load environment variables
 load_dotenv()
 
-# Initialize Groq client
-client = Groq(api_key=os.getenv("GROQ_API_KEY"))
-
-
 def answer_question(repo_url: str, question: str, limit: int = 5) -> dict:
     """
     Agent 2 — Q&A Agent.
@@ -67,7 +63,10 @@ QUESTION:
 
     # Step 4: Call Groq
     try:
-        completion = client.chat.completions.create(
+        api_key = os.getenv("GROQ_API_KEY")
+        if not api_key:
+            raise RuntimeError("GROQ_API_KEY is not configured")
+        completion = Groq(api_key=api_key).chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=[
                 {

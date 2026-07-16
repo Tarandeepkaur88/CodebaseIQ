@@ -16,10 +16,12 @@ CodebaseIQ indexes a Git repository and finds relevant source-code chunks for a 
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
+Copy-Item .env.example .env
 uvicorn backend.main:app --reload
 ```
 
 The first index/query downloads the embedding model. Chroma data is stored in `.data/chroma` and is intentionally excluded from Git.
+Set `GROQ_API_KEY` in `.env` to use the Q&A and code-review endpoints.
 
 ## API
 
@@ -33,6 +35,12 @@ Search an indexed repository:
 
 ```powershell
 Invoke-RestMethod -Method Post http://127.0.0.1:8000/query -ContentType 'application/json' -Body '{"repo_url":"https://github.com/octocat/Hello-World","question":"Where is the main logic?","limit":5}'
+```
+
+Analyze likely bugs and risks in retrieved code:
+
+```powershell
+Invoke-RestMethod -Method Post http://127.0.0.1:8000/analyze -ContentType 'application/json' -Body '{"repo_url":"https://github.com/octocat/Hello-World","question":"Find security bugs and error handling problems","limit":8}'
 ```
 
 Run automated tests with `pytest`.
