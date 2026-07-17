@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 from backend.services.indexer import RepositoryIndexer
 from backend.services.qa_agent import answer_question  # <-- NEW IMPORT
 from backend.services.bug_agent import analyze_code
+from backend.services.docs_agent import generate_docs
 
 app = FastAPI(title="CodebaseIQ", version="0.1.0")
 logger = logging.getLogger(__name__)
@@ -23,6 +24,11 @@ class QueryRequest(IndexRequest):
 
 
 class AnalysisRequest(QueryRequest):
+    limit: int = Field(default=8, ge=1, le=20)
+
+
+class DocsRequest(IndexRequest):
+    target: str | None = Field(default=None, description="Optional focus area, e.g. 'the database functions'")
     limit: int = Field(default=8, ge=1, le=20)
 
 
@@ -73,4 +79,21 @@ def analyze_repository(request: AnalysisRequest) -> dict:
         raise HTTPException(
             status_code=500,
             detail=f"Could not analyze repository: {exc}",
+        ) from exc
+
+
+@app.post("/generate-docs")
+def generate_documentation(request: DocsRequest) -> dict:
+    """Generate documentation for the repository, optionally focused on a target area."""
+    try:
+        return generate_docs(
+            repo_url=request.repo_url,
+            target=request.target,
+            limit=request.limit,
+        )
+    except Exception as exc:
+        logger.exception("Documentation generation failed for %s", request.repo_url)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Could not generate documentation: {exc}",
         ) from exc
