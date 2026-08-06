@@ -8,15 +8,20 @@ load_dotenv()
 
 def generate_docs(repo_url: str, target: str = None, limit: int = 8) -> dict:
     """
-    Agent 4 — Docs Writer.
-    1. Retrieves relevant code chunks (general overview, or a specific focus area).
-    2. Sends only those chunks to the LLM.
-    3. Returns generated documentation with sources.
+    Agent 4 — Documentation Generator.
+
+    Workflow:
+    1. Retrieve the most relevant code snippets from ChromaDB.
+    2. Build a context using those snippets.
+    3. Ask Groq to generate professional developer documentation.
+    4. Return the documentation along with source citations.
     """
+
     query = target if target else "overview of the main functionality of this project"
 
     # Step 1: Retrieve relevant chunks
     matches = RepositorySearch().query(repo_url, query, limit)
+
     if not matches:
         return {
             "target": target,
@@ -26,39 +31,88 @@ def generate_docs(repo_url: str, target: str = None, limit: int = 8) -> dict:
 
     # Step 2: Build context
     context_blocks = []
+
     for m in matches:
         metadata = m.get("metadata", {})
         file_info = (
             f"File: {metadata.get('file', 'unknown')} "
-            f"(lines {metadata.get('start_line', '?')}-{metadata.get('end_line', '?')})"
+            f"(Lines {metadata.get('start_line', '?')}-{metadata.get('end_line', '?')})"
         )
+
         context_blocks.append(
             f"{file_info}\n{m.get('text', '')}"
         )
+
     context = "\n\n---\n\n".join(context_blocks)
 
     # Step 3: Prompt
     prompt = f"""
-You are a technical writer creating documentation for a codebase.
-Use ONLY the provided code snippets below.
-Rules:
-- Do NOT make up information not present in the snippets.
-- Write clear, well-structured documentation using Markdown headings.
-- Explain the purpose of the code, key functions/classes, and how it fits into the project.
-- Mention relevant file names whenever possible.
+You are a Senior Software Engineer and Technical Documentation Specialist.
 
-CODE SNIPPETS:
+Your task is to generate professional developer documentation for a codebase.
+
+IMPORTANT RULES:
+- Use ONLY the provided code snippets.
+- Do NOT invent classes, functions, APIs, or features.
+- If some information is unavailable, clearly state that it is not present in the retrieved code.
+- Write clean Markdown.
+- Mention file names whenever relevant.
+- Explain the code so another developer can quickly understand it.
+
+Target Module:
+{target if target else "Entire Project"}
+
+Retrieved Code:
 {context}
 
-FOCUS AREA (if specified): {target if target else "General project overview"}
+Generate documentation using this exact structure:
+
+# Overview
+Explain the overall purpose of this module.
+
+# Architecture
+Describe the important components and how they interact.
+
+# Key Components
+For every important function or class include:
+- Name
+- File
+- Purpose
+- Inputs
+- Outputs
+- Important implementation details
+
+# Workflow
+Explain the execution flow step-by-step.
+
+# Dependencies
+Mention important libraries, frameworks, and modules used.
+
+# Error Handling
+Explain how errors or exceptions are handled.
+
+# Security Considerations
+Mention authentication, authorization, password hashing, sessions, validation, SQL queries, or any security mechanisms if present.
+
+# Usage Example
+Provide a short example of how a developer would use this module.
+
+# Summary
+Provide a concise summary.
+
+Only document information supported by the retrieved code.
 """
 
-    # Step 4: Call Groq
+    # Step 4: Generate documentation
     try:
         api_key = os.getenv("GROQ_API_KEY")
+
         if not api_key:
             raise RuntimeError("GROQ_API_KEY is not configured")
-        completion = Groq(api_key=api_key).chat.completions.create(
+
+        client = Groq(api_key=api_key)
+
+        completion = client.chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=[
                 {
@@ -67,9 +121,11 @@ FOCUS AREA (if specified): {target if target else "General project overview"}
                 }
             ],
             temperature=0.2,
-            max_tokens=1024,
+            max_tokens=2048,
         )
+
         documentation = completion.choices[0].message.content
+
     except Exception as e:
         return {
             "target": target,
@@ -95,10 +151,13 @@ FOCUS AREA (if specified): {target if target else "General project overview"}
 if __name__ == "__main__":
     result = generate_docs(
         repo_url="https://github.com/Tarandeepkaur88/ReZniX",
-        target="the database functions"
+        target="authentication module"
     )
+
     print("\n========== DOCUMENTATION ==========\n")
     print(result["documentation"])
+
     print("\n========== SOURCES ==========\n")
+
     for source in result["sources"]:
         print(source)

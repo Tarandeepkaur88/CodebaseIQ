@@ -6,9 +6,10 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
 from backend.services.indexer import RepositoryIndexer
-from backend.services.qa_agent import answer_question  # <-- NEW IMPORT
+from backend.services.qa_agent import answer_question
 from backend.services.bug_agent import analyze_code
 from backend.services.docs_agent import generate_docs
+from backend.services.orchestrator import handle_request
 
 app = FastAPI(title="CodebaseIQ", version="0.1.0")
 logger = logging.getLogger(__name__)
@@ -28,8 +29,18 @@ class AnalysisRequest(QueryRequest):
 
 
 class DocsRequest(IndexRequest):
-    target: str | None = Field(default=None, description="Optional focus area, e.g. 'the database functions'")
+    target: str | None = Field(
+        default=None,
+        description="Optional focus area, e.g. 'the database functions'",
+    )
     limit: int = Field(default=8, ge=1, le=20)
+
+
+class AgentRequest(IndexRequest):
+    message: str = Field(
+        min_length=1,
+        description="Natural language request for the AI agent",
+    )
 
 
 @app.get("/health")
@@ -45,7 +56,7 @@ def index_repository(request: IndexRequest) -> dict:
         logger.exception("Repository indexing failed for %s", request.repo_url)
         raise HTTPException(
             status_code=400,
-            detail=f"Could not index repository: {exc}"
+            detail=f"Could not index repository: {exc}",
         ) from exc
 
 
@@ -61,7 +72,7 @@ def query_repository(request: QueryRequest) -> dict:
         logger.exception("Repository query failed for %s", request.repo_url)
         raise HTTPException(
             status_code=500,
-            detail=f"Could not answer question: {exc}"
+            detail=f"Could not answer question: {exc}",
         ) from exc
 
 
@@ -84,7 +95,7 @@ def analyze_repository(request: AnalysisRequest) -> dict:
 
 @app.post("/generate-docs")
 def generate_documentation(request: DocsRequest) -> dict:
-    """Generate documentation for the repository, optionally focused on a target area."""
+    """Generate documentation for the repository."""
     try:
         return generate_docs(
             repo_url=request.repo_url,
@@ -96,4 +107,28 @@ def generate_documentation(request: DocsRequest) -> dict:
         raise HTTPException(
             status_code=500,
             detail=f"Could not generate documentation: {exc}",
+        ) from exc
+
+
+@app.post("/agent")
+def agent(request: AgentRequest) -> dict:
+    """
+    Smart AI endpoint.
+
+    Uses the LangGraph orchestrator + Groq LLM to automatically
+    determine whether the request should be handled by:
+      - QA Agent
+      - Bug Finder Agent
+      - Documentation Agent
+    """
+    try:
+        return handle_request(
+            repo_url=request.repo_url,
+            message=request.message,
+        )
+    except Exception as exc:
+        logger.exception("Agent routing failed for %s", request.repo_url)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Agent request failed: {exc}",
         ) from exc
