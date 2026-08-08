@@ -1,6 +1,7 @@
 """FastAPI application for indexing and searching Git repositories."""
 
 import logging
+from fastapi.middleware.cors import CORSMiddleware
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
@@ -12,6 +13,13 @@ from backend.services.docs_agent import generate_docs
 from backend.services.orchestrator import handle_request
 
 app = FastAPI(title="CodebaseIQ", version="0.1.0")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 logger = logging.getLogger(__name__)
 
 
@@ -21,11 +29,11 @@ class IndexRequest(BaseModel):
 
 class QueryRequest(IndexRequest):
     question: str = Field(min_length=1)
-    limit: int = Field(default=5, ge=1, le=20)
+    limit: int = Field(default=10, ge=1, le=20)
 
 
 class AnalysisRequest(QueryRequest):
-    limit: int = Field(default=8, ge=1, le=20)
+    limit: int = Field(default=10, ge=1, le=20)
 
 
 class DocsRequest(IndexRequest):
