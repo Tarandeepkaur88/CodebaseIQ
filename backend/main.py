@@ -3,7 +3,7 @@
 import logging
 from fastapi.middleware.cors import CORSMiddleware
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
 from pydantic import BaseModel, Field
 
 from backend.services.indexer import RepositoryIndexer
@@ -11,6 +11,7 @@ from backend.services.qa_agent import answer_question
 from backend.services.bug_agent import analyze_code
 from backend.services.docs_agent import generate_docs
 from backend.services.orchestrator import handle_request
+from backend.services.auth import get_current_user
 
 app = FastAPI(title="CodebaseIQ", version="0.1.0")
 app.add_middleware(
@@ -57,7 +58,7 @@ def health() -> dict:
 
 
 @app.post("/index")
-def index_repository(request: IndexRequest) -> dict:
+def index_repository(request: IndexRequest, user=Depends(get_current_user)) -> dict:
     try:
         return RepositoryIndexer().index_repository(request.repo_url)
     except Exception as exc:
@@ -69,7 +70,7 @@ def index_repository(request: IndexRequest) -> dict:
 
 
 @app.post("/query")
-def query_repository(request: QueryRequest) -> dict:
+def query_repository(request: QueryRequest, user=Depends(get_current_user)) -> dict:
     try:
         return answer_question(
             repo_url=request.repo_url,
@@ -85,7 +86,7 @@ def query_repository(request: QueryRequest) -> dict:
 
 
 @app.post("/analyze")
-def analyze_repository(request: AnalysisRequest) -> dict:
+def analyze_repository(request: AnalysisRequest, user=Depends(get_current_user)) -> dict:
     """Review retrieved repository code for likely issues."""
     try:
         return analyze_code(
@@ -102,7 +103,7 @@ def analyze_repository(request: AnalysisRequest) -> dict:
 
 
 @app.post("/generate-docs")
-def generate_documentation(request: DocsRequest) -> dict:
+def generate_documentation(request: DocsRequest, user=Depends(get_current_user)) -> dict:
     """Generate documentation for the repository."""
     try:
         return generate_docs(
@@ -119,7 +120,7 @@ def generate_documentation(request: DocsRequest) -> dict:
 
 
 @app.post("/agent")
-def agent(request: AgentRequest) -> dict:
+def agent(request: AgentRequest, user=Depends(get_current_user)) -> dict:
     """
     Smart AI endpoint.
 

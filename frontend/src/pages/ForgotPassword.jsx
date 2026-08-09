@@ -2,15 +2,31 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Code2, ArrowRight, Sparkles, ArrowLeft, CheckCircle2 } from "lucide-react";
+import { supabase } from "../lib/supabase";
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // Real Supabase reset-password logic comes later
+    setError("");
+    setLoading(true);
+
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+
+    setLoading(false);
+
+    if (error) {
+      setError(error.message);
+      return;
+    }
+
     setSent(true);
   };
 
@@ -72,6 +88,12 @@ export default function ForgotPassword() {
                   Enter your email and we'll send you a reset link.
                 </p>
 
+                {error && (
+                  <div className="bg-red-500/10 border border-red-500/30 text-red-400 text-xs rounded-lg px-3 py-2 mb-4">
+                    {error}
+                  </div>
+                )}
+
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div>
                     <label className="text-xs font-medium text-gray-400 mb-1.5 block">
@@ -91,10 +113,11 @@ export default function ForgotPassword() {
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     type="submit"
-                    className="w-full bg-gradient-to-r from-blue-500 to-purple-600 text-white text-sm font-medium py-2.5 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20 mt-2"
+                    disabled={loading}
+                    className="w-full bg-gradient-to-r from-blue-500 to-purple-600 text-white text-sm font-medium py-2.5 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20 mt-2 disabled:opacity-50"
                   >
-                    Send reset link
-                    <ArrowRight className="w-4 h-4" />
+                    {loading ? "Sending..." : "Send reset link"}
+                    {!loading && <ArrowRight className="w-4 h-4" />}
                   </motion.button>
                 </form>
               </motion.div>

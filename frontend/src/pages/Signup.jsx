@@ -2,16 +2,36 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Code2, ArrowRight, Sparkles, ArrowLeft } from "lucide-react";
+import { supabase } from "../lib/supabase";
 
 export default function Signup() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // Real Supabase signup logic comes later
+    setError("");
+    setLoading(true);
+
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: { full_name: name },
+      },
+    });
+
+    setLoading(false);
+
+    if (error) {
+      setError(error.message);
+      return;
+    }
+
     navigate("/dashboard");
   };
 
@@ -67,6 +87,12 @@ export default function Signup() {
 
           <h2 className="text-lg font-medium text-white mb-6">Create your account</h2>
 
+          {error && (
+            <div className="bg-red-500/10 border border-red-500/30 text-red-400 text-xs rounded-lg px-3 py-2 mb-4">
+              {error}
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="text-xs font-medium text-gray-400 mb-1.5 block">
@@ -107,6 +133,7 @@ export default function Signup() {
                 placeholder="••••••••"
                 className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white placeholder-gray-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all"
                 required
+                minLength={6}
               />
             </div>
 
@@ -114,10 +141,11 @@ export default function Signup() {
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               type="submit"
-              className="w-full bg-gradient-to-r from-blue-500 to-purple-600 text-white text-sm font-medium py-2.5 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20 mt-6"
+              disabled={loading}
+              className="w-full bg-gradient-to-r from-blue-500 to-purple-600 text-white text-sm font-medium py-2.5 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20 mt-6 disabled:opacity-50"
             >
-              Create account
-              <ArrowRight className="w-4 h-4" />
+              {loading ? "Creating account..." : "Create account"}
+              {!loading && <ArrowRight className="w-4 h-4" />}
             </motion.button>
           </form>
 

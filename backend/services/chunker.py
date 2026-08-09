@@ -9,8 +9,23 @@ CODE_EXTENSIONS = {
     ".py",
     ".js",
     ".jsx",
+    ".mjs",
+    ".cjs",
     ".ts",
     ".tsx",
+
+    ".html",
+    ".htm",
+    ".css",
+    ".scss",
+    ".sass",
+    ".less",
+
+    ".json",
+    ".yaml",
+    ".yml",
+    ".xml",
+
     ".java",
     ".go",
     ".rb",
