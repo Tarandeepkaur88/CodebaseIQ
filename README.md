@@ -2,7 +2,7 @@
 
 CodebaseIQ indexes a Git repository and finds relevant source-code chunks for a natural-language question. It currently provides a FastAPI backend; a frontend can be added on top of the two API endpoints.
 
-## What it does
+## What does this project do
 
 1. Clones a public Git repository into a temporary directory.
 2. Finds supported source and documentation files.
