@@ -374,7 +374,7 @@ Generate documentation for the main functions.
 
 ---
 
-# 👩‍💻 Author
+# 👩‍💻 Authors
 
 **Tarandeep Kaur** **&** **Vansh Gupta**
 
