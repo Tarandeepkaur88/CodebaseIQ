@@ -2,9 +2,9 @@
 
 <div align="center">
 
-### Understand any codebase, instantly.
+### Understand Any Codebase, Instantly
 
-An AI-powered codebase intelligence platform that allows developers to index GitHub repositories, ask questions about their code, detect potential bugs, and generate documentation using RAG and AI agents.
+An AI-powered platform that helps developers understand, analyze, and interact with GitHub repositories using **Retrieval-Augmented Generation (RAG)** and specialized AI agents.
 
 </div>
 
@@ -12,22 +12,25 @@ An AI-powered codebase intelligence platform that allows developers to index Git
 
 ## 📌 Overview
 
-Understanding an unfamiliar codebase can be time-consuming. **CodebaseIQ** simplifies this process by indexing a GitHub repository and enabling intelligent interaction with its source code.
+Understanding an unfamiliar codebase can be time-consuming, especially when working with large projects containing multiple files, functions, and dependencies.
 
-The system retrieves relevant code context and routes requests to specialized AI agents for tasks such as:
+**CodebaseIQ** simplifies this process by allowing users to index a GitHub repository and interact with its codebase through AI-powered agents.
 
-* 💬 Codebase Q&A
-* 🐛 Bug and security analysis
-* 📄 Documentation generation
-* 🔍 Semantic code search
+The platform can:
+
+* 📂 Index GitHub repositories
+* 💬 Answer questions about the codebase
+* 🐛 Analyze code for potential bugs and issues
+* 📚 Generate documentation for important functions
+* 🔍 Retrieve relevant code using semantic search
 
 ---
 
-## ✨ Features
+# ✨ Features
 
-### 🔐 Authentication
+## 🔐 User Authentication
 
-Users can securely sign in and access the CodebaseIQ platform.
+Users can securely sign in to access the CodebaseIQ platform.
 
 <p align="center">
   <img src="assets/login.png" alt="CodebaseIQ Login" width="600"/>
@@ -35,74 +38,76 @@ Users can securely sign in and access the CodebaseIQ platform.
 
 ---
 
-### 📂 Repository Indexing
+## 📂 Repository Indexing
 
-Paste a GitHub repository URL and index the repository for AI-powered analysis.
+Users can provide a GitHub repository URL and index the repository.
 
-The indexed repositories are available from the sidebar, allowing users to select and interact with different codebases.
+During indexing, the repository is processed and its source files are prepared for semantic search and AI-powered analysis.
+
+Indexed repositories are displayed in the sidebar and can be selected for further interaction.
 
 <p align="center">
-  <img src="assets/codebase-home.png" alt="Repository Indexing" width="750"/>
+  <img src="assets/indexing.png" alt="Repository Indexing" width="800"/>
 </p>
 
 ---
 
-### 💬 Ask Questions About Your Codebase
+## 💬 Codebase Q&A Agent
 
-CodebaseIQ uses Retrieval-Augmented Generation (RAG) to search the indexed repository and provide context-aware answers.
+The Q&A agent allows users to ask questions about the indexed repository.
 
-Users can ask questions such as:
+The system retrieves relevant code chunks and uses them as context to generate grounded answers.
+
+Example questions include:
 
 * What does this project do?
 * What technologies are used?
-* Explain a particular function.
-* How does the backend work?
+* Explain the backend architecture.
+* How does a particular function work?
 * Where is a specific feature implemented?
 
-The response includes relevant source references from the repository.
-
 <p align="center">
-  <img src="assets/qa.png" alt="Codebase Q&A" width="750"/>
+  <img src="assets/quesansagent.png" alt="Codebase Q&A Agent" width="800"/>
 </p>
 
 ---
 
-### 🐛 AI-Powered Bug Finder
+## 🐛 Bug Finder Agent
 
-The Bug Finder agent analyzes relevant code and identifies potential:
+The Bug Finder agent analyzes the relevant source code and identifies potential:
 
 * Bugs
 * Security vulnerabilities
 * Performance issues
 * Code-quality concerns
 
-The agent provides structured findings along with references to the relevant source files and lines.
+The generated response is supported by references to relevant files and code sections.
 
 <p align="center">
-  <img src="assets/bug-finder.png" alt="AI Bug Finder" width="750"/>
+  <img src="assets/bugagent.png" alt="Bug Finder Agent" width="800"/>
 </p>
 
 ---
 
-### 📚 Documentation Generator
+## 📚 Documentation Agent
 
-The Documentation agent analyzes the codebase and generates explanations for important functions and components.
+The Documentation Agent analyzes important functions and generates structured documentation explaining their purpose and implementation.
 
-It can provide information about:
+It can provide insights into:
 
 * Function responsibilities
-* Implementation logic
+* Core implementation logic
 * Inputs and outputs
-* Overall workflow
-* Supporting implementation evidence
+* Application workflow
+* Supporting code references
 
 <p align="center">
-  <img src="assets/documentation.png" alt="Documentation Generation" width="750"/>
+  <img src="assets/docsagent.png" alt="Documentation Agent" width="800"/>
 </p>
 
 ---
 
-## 🧠 How It Works
+# 🧠 How It Works
 
 ```text
 GitHub Repository
@@ -111,7 +116,10 @@ GitHub Repository
 Repository Indexing
        │
        ▼
-Code & Documentation Chunking
+Code & Documentation Processing
+       │
+       ▼
+Code Chunking
        │
        ▼
 Embedding Generation
@@ -120,10 +128,10 @@ Embedding Generation
 ChromaDB Vector Store
        │
        ▼
-Semantic Retrieval
+Semantic Search & Retrieval
        │
        ▼
-      AI Router
+AI Agent Routing
    ┌──────┼──────┐
    ▼      ▼      ▼
  Q&A   Bug Finder  Docs
@@ -132,104 +140,104 @@ Semantic Retrieval
 
 ---
 
-## 🛠️ Tech Stack
+# 🛠️ Tech Stack
 
-### Frontend
+## Frontend
 
 * React
 * JavaScript
+* HTML
 * CSS
 
-### Backend
+## Backend
 
-* FastAPI
 * Python
+* FastAPI
 * Pydantic
 
-### AI & RAG
+## AI & RAG
 
+* Groq API
+* Llama 3.3
 * Sentence Transformers
 * `all-MiniLM-L6-v2`
 * ChromaDB
-* Groq API
-* Llama 3.3
 
-### Repository Processing
+## Repository Processing
 
 * GitHub repository cloning
-* AST-based chunking for Python files
-* Line-based chunking for other source files
+* AST-based code chunking
+* Line-based chunking
 * Semantic vector search
 
 ---
 
-## 🤖 AI Agents
+# 🤖 AI Agents
 
-### 💬 Q&A Agent
+## 💬 Q&A Agent
 
-Answers questions about the indexed repository using retrieved code context.
+The Q&A Agent retrieves relevant code chunks from the indexed repository and generates answers based on the retrieved context.
 
-### 🐛 Bug Finder Agent
+## 🐛 Bug Finder Agent
 
-Analyzes code for potential bugs, security concerns, and performance issues.
+The Bug Finder Agent analyzes source code and identifies potential bugs, security concerns, and performance issues.
 
-### 📄 Documentation Agent
+## 📚 Documentation Agent
 
-Generates documentation and explanations for important functions and components.
+The Documentation Agent generates explanations and documentation for important functions and components within the repository.
 
 ---
 
-## 🔄 Application Workflow
+# 🔄 Application Workflow
 
 ```text
-1. User logs into CodebaseIQ
+1. User signs in to CodebaseIQ
         ↓
 2. User provides a GitHub repository URL
         ↓
-3. Repository is cloned and processed
+3. Repository is cloned and indexed
         ↓
-4. Code files are split into meaningful chunks
+4. Source files are processed
         ↓
-5. Embeddings are generated
+5. Code is divided into meaningful chunks
         ↓
-6. Vectors are stored in ChromaDB
+6. Embeddings are generated
         ↓
-7. User asks a question or requests analysis
+7. Vectors are stored in ChromaDB
         ↓
-8. Relevant code chunks are retrieved
+8. User submits a query or analysis request
         ↓
-9. Request is routed to the appropriate AI agent
+9. Relevant code chunks are retrieved
         ↓
-10. AI-generated response is returned with source references
+10. Request is routed to the appropriate AI agent
+        ↓
+11. AI-generated response is returned with source references
 ```
 
 ---
 
-## 📂 Project Structure
+# 📂 Project Structure
 
 ```text
-CodebaseIQ
+CodebaseIQ/
+│
+├── assets/
+│   ├── bugagent.png
+│   ├── docsagent.png
+│   ├── indexing.png
+│   ├── login.png
+│   └── quesansagent.png
 │
 ├── backend/
 │   ├── agents/
-│   │   ├── qa_agent.py
-│   │   ├── bug_finder.py
-│   │   └── docs_writer.py
-│   │
 │   ├── services/
 │   ├── utils/
 │   └── main.py
 │
 ├── frontend/
 │   ├── src/
-│   └── components/
-│
-├── assets/
-│   ├── login.png
-│   ├── codebase-home.png
-│   ├── qa.png
-│   ├── bug-finder.png
-│   └── documentation.png
+│   ├── components/
+│   └── ...
 │
 ├── requirements.txt
 ├── .env.example
@@ -238,56 +246,68 @@ CodebaseIQ
 
 ---
 
-## ⚙️ Installation
+# ⚙️ Installation
 
-### 1. Clone the repository
+## 1. Clone the Repository
 
 ```bash
-git clone <your-repository-url>
+git clone https://github.com/Tarandeepkaur88/CodebaseIQ.git
 cd CodebaseIQ
 ```
 
-### 2. Create a virtual environment
+## 2. Create a Virtual Environment
 
 ```bash
 python -m venv venv
 ```
 
-Activate it:
-
-**macOS/Linux**
+### macOS / Linux
 
 ```bash
 source venv/bin/activate
 ```
 
-**Windows**
+### Windows
 
 ```bash
 venv\Scripts\activate
 ```
 
-### 3. Install dependencies
+---
+
+## 3. Install Backend Dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 4. Configure environment variables
+---
 
-Create a `.env` file based on `.env.example`.
+## 4. Configure Environment Variables
+
+Create a `.env` file based on the `.env.example` file.
+
+Add your required API keys:
 
 ```env
-GROQ_API_KEY=your_api_key_here
+GROQ_API_KEY=your_groq_api_key
 ```
 
-### 5. Start the backend
+---
+
+## 5. Start the Backend
 
 ```bash
 uvicorn backend.main:app --reload
 ```
 
-### 6. Start the frontend
+The backend should start locally and expose the API endpoints.
+
+---
+
+## 6. Start the Frontend
+
+Open another terminal:
 
 ```bash
 cd frontend
@@ -295,11 +315,13 @@ npm install
 npm run dev
 ```
 
+Open the local URL displayed by Vite in your browser.
+
 ---
 
-## 🎯 Example Queries
+# 💡 Example Queries
 
-Try asking:
+You can ask CodebaseIQ questions such as:
 
 ```text
 What does this project do?
@@ -307,6 +329,10 @@ What does this project do?
 
 ```text
 What technologies are used in the frontend and backend?
+```
+
+```text
+How does repository indexing work?
 ```
 
 ```text
@@ -319,29 +345,43 @@ Generate documentation for the main functions.
 
 ---
 
-## 🔮 Future Improvements
+# 🚀 Key Concepts Used
 
-* Multi-language code analysis
-* More specialized AI agents
-* GitHub OAuth integration
-* Real-time repository updates
-* Improved bug severity classification
-* Repository visualization
-* Conversation history
-* Support for larger repositories
+* **Retrieval-Augmented Generation (RAG)**
+* **Semantic Search**
+* **Vector Embeddings**
+* **Vector Database**
+* **AST-Based Code Chunking**
+* **Large Language Models**
+* **AI Agents**
+* **FastAPI**
+* **React**
 
 ---
 
-## 👩‍💻 Author
+# 🔮 Future Improvements
+
+* [ ] Support for additional programming languages
+* [ ] Improved multi-agent routing
+* [ ] More advanced bug severity classification
+* [ ] Repository architecture visualization
+* [ ] Conversation history
+* [ ] Support for larger repositories
+* [ ] Real-time repository updates
+* [ ] Additional AI-powered code analysis agents
+
+---
+
+# 👩‍💻 Author
 
 **Tarandeep Kaur**
 
-Built as an AI-powered platform for intelligent codebase understanding, analysis, and documentation.
+Built as an AI-powered platform for intelligent codebase understanding, analysis, bug detection, and automated documentation.
 
 ---
 
 <div align="center">
 
-⭐ If you find this project interesting, consider giving it a star!
+⭐ If you found this project interesting, consider giving it a star!
 
 </div>
