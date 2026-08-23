@@ -376,7 +376,7 @@ Generate documentation for the main functions.
 
 # 👩‍💻 Author
 
-**Tarandeep Kaur**
+**Vansh Gupta&Tarandeep Kaur **
 
 Built as an AI-powered platform for intelligent codebase understanding, analysis, bug detection, and automated documentation.
 
