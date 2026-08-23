@@ -14,6 +14,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { indexRepository, sendAgentMessage } from "../lib/api";
+import { saveRepo, getUserRepos, saveMessage, getChatHistory } from "../lib/supabase";
 
 const intentConfig = {
   qa: { icon: MessageSquare, color: "text-blue-400", bg: "bg-blue-500/10", label: "Q&A" },
@@ -36,12 +37,22 @@ export default function Dashboard() {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  // Load saved repos when the dashboard first opens
+  useEffect(() => {
+    const loadRepos = async () => {
+      const savedRepos = await getUserRepos();
+      setRepos(savedRepos.map((r) => ({ url: r.repo_url, chunks: r.chunks_count })));
+    };
+    loadRepos();
+  }, []);
+
   const handleIndexRepo = async (e) => {
     e.preventDefault();
     if (!repoInput.trim()) return;
     setIndexing(true);
     try {
       const result = await indexRepository(repoInput);
+      await saveRepo(repoInput, result.chunks_indexed);
       const newRepo = { url: repoInput, chunks: result.chunks_indexed };
       setRepos((prev) => [newRepo, ...prev]);
       setActiveRepo(newRepo);
@@ -63,6 +74,8 @@ export default function Dashboard() {
     setChatInput("");
     setSending(true);
 
+    await saveMessage(activeRepo.url, "user", userMessage.text);
+
     try {
       const result = await sendAgentMessage(activeRepo.url, userMessage.text);
       const answerText =
@@ -73,6 +86,8 @@ export default function Dashboard() {
         ...prev,
         { role: "assistant", text: answerText, intent: result.intent, sources },
       ]);
+
+      await saveMessage(activeRepo.url, "assistant", answerText, result.intent, sources);
     } catch (err) {
       setMessages((prev) => [
         ...prev,
@@ -81,6 +96,19 @@ export default function Dashboard() {
     } finally {
       setSending(false);
     }
+  };
+
+  const handleSelectRepo = async (repo) => {
+    setActiveRepo(repo);
+    const history = await getChatHistory(repo.url);
+    setMessages(
+      history.map((h) => ({
+        role: h.role,
+        text: h.message,
+        intent: h.intent,
+        sources: h.sources,
+      }))
+    );
   };
 
   return (
@@ -149,10 +177,7 @@ export default function Dashboard() {
                   key={i}
                   initial={{ opacity: 0, x: -10 }}
                   animate={{ opacity: 1, x: 0 }}
-                  onClick={() => {
-                    setActiveRepo(repo);
-                    setMessages([]);
-                  }}
+                  onClick={() => handleSelectRepo(repo)}
                   className={`w-full text-left px-3 py-2.5 rounded-lg mb-1 flex items-center gap-2 text-xs transition-colors ${
                     activeRepo?.url === repo.url
                       ? "bg-blue-500/10 text-blue-300 border border-blue-500/30"

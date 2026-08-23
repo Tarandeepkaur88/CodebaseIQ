@@ -12,6 +12,35 @@ load_dotenv()
 
 
 # =============================================================
+# OUTPUT CLEANUP
+# =============================================================
+
+def clean_model_output(text: str) -> str:
+    """
+    Removes reasoning blocks accidentally returned by the model.
+    Only the final user-facing answer should be returned.
+    """
+
+    if not text:
+        return ""
+
+    text = text.strip()
+
+    # Remove <think>...</think> blocks
+    while "<think>" in text and "</think>" in text:
+        start = text.find("<think>")
+        end = text.find("</think>") + len("</think>")
+        text = (text[:start] + text[end:]).strip()
+
+    # If a malformed response starts with <think> but has no closing tag,
+    # avoid returning the reasoning block.
+    if text.startswith("<think>"):
+        return ""
+
+    return text
+
+
+# =============================================================
 # SOURCE HELPERS
 # =============================================================
 
@@ -122,7 +151,7 @@ SOURCE CODE:
     )
 
     prompt = f"""
-You are CodebaseIQ's Bug Finder.
+You are CodebaseIQ's Bug Finder Agent.
 
 You are reviewing batch {batch_number} of a repository-wide
 code security and correctness scan.
@@ -189,7 +218,7 @@ STRICT RULES:
 
 13. Accuracy is more important than finding something.
 
-14. If no confirmed issue exists in this batch, return:
+14. If no confirmed issue exists in this batch, return exactly:
 
     NO_CONFIRMED_FINDINGS
 
@@ -205,13 +234,20 @@ STRICT RULES:
 
 16. Use ONLY the file and line numbers provided above.
 
+17. Do NOT output <think> tags.
+
+18. Do NOT reveal internal reasoning, hidden analysis,
+    chain-of-thought, or private step-by-step deliberation.
+
+19. Return ONLY the final user-facing bug analysis.
+
 SOURCE CODE:
 
 {context}
 """
 
     completion = client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
+        model="qwen/qwen3.6-27b",
 
         messages=[
             {
@@ -225,7 +261,7 @@ SOURCE CODE:
         max_tokens=1500
     )
 
-    return (
+    return clean_model_output(
         completion
         .choices[0]
         .message
@@ -248,7 +284,7 @@ def _combine_findings(
     )
 
     prompt = f"""
-You are the final security reviewer for CodebaseIQ.
+You are the final Bug Finder Agent reviewer for CodebaseIQ.
 
 The repository was analyzed in multiple independent batches.
 
@@ -295,7 +331,14 @@ STRICT RULES:
 
     Then optionally provide code-quality observations.
 
-OUTPUT:
+11. Do NOT output <think> tags.
+
+12. Do NOT reveal internal reasoning, hidden analysis,
+    chain-of-thought, or private step-by-step deliberation.
+
+13. Return ONLY the final user-facing report.
+
+OUTPUT FORMAT:
 
 # Code Review
 
@@ -330,7 +373,7 @@ observations here.
 """
 
     completion = client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
+        model="qwen/qwen3.6-27b",
 
         messages=[
             {
@@ -344,7 +387,7 @@ observations here.
         max_tokens=2000
     )
 
-    return (
+    return clean_model_output(
         completion
         .choices[0]
         .message
@@ -391,7 +434,7 @@ def analyze_code(
             }
 
         print(
-            f"\nBug Finder: "
+            f"\nBug Finder Agent: "
             f"{len(chunks)} source chunks found."
         )
 
@@ -426,7 +469,7 @@ def analyze_code(
             ) + 1
 
             print(
-                f"\nBug Finder: "
+                f"\nBug Finder Agent: "
                 f"Analyzing batch "
                 f"{batch_number}/{total_batches}"
             )
@@ -447,7 +490,7 @@ def analyze_code(
         # -----------------------------------------------------
 
         print(
-            "\nBug Finder: "
+            "\nBug Finder Agent: "
             "Combining findings..."
         )
 
@@ -466,7 +509,7 @@ def analyze_code(
         )
 
         print(
-            "\nBug Finder completed."
+            "\nBug Finder Agent completed."
         )
 
         return {
@@ -476,6 +519,10 @@ def analyze_code(
         }
 
     except Exception as exc:
+
+        print(
+            f"\nBug Finder Agent error: {exc}"
+        )
 
         return {
             "question": question,

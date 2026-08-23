@@ -8,6 +8,7 @@ from groq import Groq
 
 from backend.services.search import RepositorySearch
 
+
 load_dotenv()
 
 
@@ -16,11 +17,16 @@ load_dotenv()
 # ============================================================
 
 def _sources(matches: list[dict]) -> list[dict]:
+
     seen = set()
     sources = []
 
     for match in matches:
-        metadata = match.get("metadata", {})
+
+        metadata = match.get(
+            "metadata",
+            {}
+        )
 
         source = {
             "file": metadata.get("file"),
@@ -35,6 +41,7 @@ def _sources(matches: list[dict]) -> list[dict]:
         )
 
         if key not in seen:
+
             seen.add(key)
             sources.append(source)
 
@@ -42,17 +49,51 @@ def _sources(matches: list[dict]) -> list[dict]:
 
 
 # ============================================================
+# CLEAN MODEL OUTPUT
+# ============================================================
+
+def clean_model_output(content: str) -> str:
+    """
+    Remove Qwen reasoning blocks such as:
+
+    <think>
+    internal reasoning
+    </think>
+
+    Only the final answer should reach the frontend.
+    """
+
+    if not content:
+        return ""
+
+    content = content.strip()
+
+    # Remove complete think blocks
+    content = re.sub(
+        r"<think>.*?</think>",
+        "",
+        content,
+        flags=re.DOTALL | re.IGNORECASE,
+    )
+
+    return content.strip()
+
+
+# ============================================================
 # FILE NAME DETECTION
 # ============================================================
 
-def _extract_filename(question: str) -> str | None:
+def _extract_filename(
+    question: str
+) -> str | None:
 
     # Example:
     # Explain `main.js`
 
     pattern = (
-        r"`([^`]+\.(?:py|js|jsx|ts|tsx|java|go|rb|cpp|c|h|hpp|"
-        r"cs|php|rs|sql|md|rst))`"
+        r"`([^`]+\.(?:py|js|jsx|mjs|cjs|ts|tsx|"
+        r"html|htm|css|scss|sass|less|json|yaml|yml|xml|"
+        r"java|go|rb|cpp|c|h|hpp|cs|php|rs|sql|md|rst))`"
     )
 
     match = re.search(
@@ -68,8 +109,9 @@ def _extract_filename(question: str) -> str | None:
     # Explain main.js
 
     pattern = (
-        r"\b([A-Za-z0-9_./\\-]+\.(?:py|js|jsx|ts|tsx|java|go|rb|"
-        r"cpp|c|h|hpp|cs|php|rs|sql|md|rst))\b"
+        r"\b([A-Za-z0-9_./\\-]+\.(?:py|js|jsx|mjs|cjs|"
+        r"ts|tsx|html|htm|css|scss|sass|less|json|yaml|yml|xml|"
+        r"java|go|rb|cpp|c|h|hpp|cs|php|rs|sql|md|rst))\b"
     )
 
     match = re.search(
@@ -88,11 +130,14 @@ def _extract_filename(question: str) -> str | None:
 # PROJECT OVERVIEW DETECTION
 # ============================================================
 
-def _is_project_overview(question: str) -> bool:
+def _is_project_overview(
+    question: str
+) -> bool:
 
     q = question.lower()
 
     phrases = [
+
         "what is this project",
         "what does this project do",
         "what is this project about",
@@ -103,6 +148,7 @@ def _is_project_overview(question: str) -> bool:
         "what is the purpose",
         "what does the application do",
         "what does the app do",
+
     ]
 
     return any(
@@ -115,11 +161,14 @@ def _is_project_overview(question: str) -> bool:
 # ARCHITECTURE / DATA FLOW DETECTION
 # ============================================================
 
-def _is_architecture_question(question: str) -> bool:
+def _is_architecture_question(
+    question: str
+) -> bool:
 
     q = question.lower()
 
     phrases = [
+
         "data flow",
         "frontend to backend",
         "backend to frontend",
@@ -135,12 +184,48 @@ def _is_architecture_question(question: str) -> bool:
         "how are the components connected",
         "how do the components interact",
         "how does the system work",
+
     ]
 
     return any(
         phrase in q
         for phrase in phrases
     )
+
+
+# ============================================================
+# REMOVE DUPLICATE MATCHES
+# ============================================================
+
+def _deduplicate_matches(
+    matches: list[dict]
+) -> list[dict]:
+
+    seen = set()
+    unique_matches = []
+
+    for match in matches:
+
+        metadata = match.get(
+            "metadata",
+            {}
+        )
+
+        key = (
+            metadata.get("file"),
+            metadata.get("start_line"),
+            metadata.get("end_line"),
+        )
+
+        if key not in seen:
+
+            seen.add(key)
+
+            unique_matches.append(
+                match
+            )
+
+    return unique_matches
 
 
 # ============================================================
@@ -151,7 +236,7 @@ def _build_context(
     matches: list[dict]
 ) -> str:
 
-    context_parts = []
+    context_blocks = []
 
     for match in matches:
 
@@ -160,24 +245,19 @@ def _build_context(
             {}
         )
 
-        file = metadata.get(
+        file_name = metadata.get(
             "file",
             "unknown"
         )
 
-        start = metadata.get(
+        start_line = metadata.get(
             "start_line",
             "?"
         )
 
-        end = metadata.get(
+        end_line = metadata.get(
             "end_line",
             "?"
-        )
-
-        source_type = metadata.get(
-            "source",
-            "code"
         )
 
         content = match.get(
@@ -185,41 +265,41 @@ def _build_context(
             ""
         )
 
-        context_parts.append(
+        context_blocks.append(
             f"""
-FILE: {file}
-LINES: {start}-{end}
-SOURCE TYPE: {source_type}
+FILE: {file_name}
+
+LINES: {start_line}-{end_line}
 
 CONTENT:
+
 {content}
 """
         )
 
-    return (
-        "\n\n"
-        "=========================================="
-        "\n\n"
-    ).join(context_parts)
+    return "\n\n====================\n\n".join(
+        context_blocks
+    )
 
 
 # ============================================================
-# MAIN Q&A
+# MAIN Q&A AGENT
 # ============================================================
 
 def answer_question(
     repo_url: str,
     question: str,
-    limit: int = 10
+    limit: int = 10,
 ) -> dict:
 
     search = RepositorySearch()
 
     matches = []
     retrieval_mode = "semantic"
+    file_name = None
 
     # ========================================================
-    # CASE 1: SPECIFIC FILE QUESTION
+    # CASE 1: FILE-SPECIFIC QUESTION
     # ========================================================
 
     file_name = _extract_filename(
@@ -229,15 +309,27 @@ def answer_question(
     if file_name:
 
         print(
-            f"\nDetected file question: {file_name}"
+            f"\nDetected file-specific question: "
+            f"{file_name}"
         )
 
-        matches = search.get_file_chunks(
-            repo_url,
-            file_name
-        )
+        try:
+
+            matches = search.get_file_chunks(
+                repo_url,
+                file_name
+            )
+
+        except Exception as exc:
+
+            print(
+                f"File retrieval failed: {exc}"
+            )
+
+            matches = []
 
         retrieval_mode = "file-specific"
+
 
     # ========================================================
     # CASE 2: ARCHITECTURE / DATA FLOW
@@ -248,33 +340,53 @@ def answer_question(
     ):
 
         print(
-            "\nDetected architecture/data-flow question."
+            "\nDetected architecture/data flow question."
         )
 
-        # ----------------------------------------------------
-        # Get ALL source code
-        # ----------------------------------------------------
-
-        all_source_chunks = (
-            search.get_all_source_chunks(
-                repo_url
-            )
+        matches = search.query(
+            repo_url,
+            question,
+            limit=limit
         )
 
-        # ----------------------------------------------------
-        # Get README/documentation
-        # ----------------------------------------------------
+        retrieval_mode = "architecture"
+
+
+    # ========================================================
+    # CASE 3: PROJECT OVERVIEW
+    # ========================================================
+
+    elif _is_project_overview(
+        question
+    ):
+
+        print(
+            "\nDetected project overview question."
+        )
 
         documentation_chunks = []
 
-        # Most repositories use README.md.
-        # We also try README.rst.
+        # ----------------------------------------------------
+        # 1. Semantic matches
+        # ----------------------------------------------------
+
+        semantic_matches = search.query(
+            repo_url,
+            question,
+            limit=limit
+        )
+
+        # ----------------------------------------------------
+        # 2. Try README
+        # ----------------------------------------------------
 
         for readme_name in [
+
             "README.md",
             "README.rst",
             "readme.md",
             "readme.rst",
+
         ]:
 
             try:
@@ -287,7 +399,7 @@ def answer_question(
                 if docs:
 
                     documentation_chunks.extend(
-                        docs
+                        docs[:4]
                     )
 
                     print(
@@ -305,161 +417,196 @@ def answer_question(
                 )
 
         # ----------------------------------------------------
-        # Find API/backend-related source code
+        # 3. Get all source chunks
         # ----------------------------------------------------
 
-        keywords = [
-            "fetch(",
-            "axios",
-            "xmlhttprequest",
-            "http",
-            "https",
-            "api",
-            "request",
-            "response",
-            "@app.",
-            "@router.",
-            "router.",
-            "route",
-            "post(",
-            "get(",
-            "put(",
-            "delete(",
-            "database",
-            "supabase",
-            "requests.",
-            "fastapi",
-            "flask",
-            "express",
-            "sql",
-        ]
+        all_source_chunks = (
+            search.get_all_source_chunks(
+                repo_url
+            )
+        )
 
-        relevant_source_chunks = []
+        # ----------------------------------------------------
+        # 4. Group chunks by file
+        # ----------------------------------------------------
+
+        grouped_by_file = {}
 
         for chunk in all_source_chunks:
 
-            text = chunk.get(
-                "text",
-                ""
-            ).lower()
-
-            if any(
-                keyword.lower() in text
-                for keyword in keywords
-            ):
-
-                relevant_source_chunks.append(
-                    chunk
-                )
-
-        # ----------------------------------------------------
-        # Combine documentation + relevant source
-        # ----------------------------------------------------
-
-        matches = (
-            documentation_chunks
-            + relevant_source_chunks[:60]
-        )
-
-        # If nothing matched the API keywords,
-        # still provide some source code.
-        if not relevant_source_chunks:
-
-            matches = (
-                documentation_chunks
-                + all_source_chunks[:40]
-            )
-
-        retrieval_mode = "architecture"
-
-        print(
-            f"Architecture retrieval:"
-            f" {len(matches)} chunks"
-        )
-
-    # ========================================================
-    # CASE 3: PROJECT OVERVIEW
-    # ========================================================
-
-    elif _is_project_overview(
-        question
-    ):
-
-        print(
-            "\nDetected project overview question."
-        )
-
-        # First semantic search
-        # This can retrieve README + source code
-        # because README is now indexed.
-
-        matches = search.query(
-            repo_url,
-            question,
-            limit=limit
-        )
-
-        # Explicitly add README so project purpose
-        # is not lost because of semantic ranking.
-
-        documentation_chunks = []
-
-        for readme_name in [
-            "README.md",
-            "README.rst",
-            "readme.md",
-            "readme.rst",
-        ]:
-
-            try:
-
-                docs = search.get_file_chunks(
-                    repo_url,
-                    readme_name
-                )
-
-                if docs:
-
-                    documentation_chunks.extend(
-                        docs
-                    )
-
-                    break
-
-            except Exception:
-                pass
-
-        # README first, then semantic results.
-        matches = (
-            documentation_chunks
-            + matches
-        )
-
-        # Remove duplicate chunks.
-        unique = []
-        seen = set()
-
-        for match in matches:
-
-            metadata = match.get(
+            metadata = chunk.get(
                 "metadata",
                 {}
             )
 
-            key = (
-                metadata.get("file"),
-                metadata.get("start_line"),
-                metadata.get("end_line"),
+            file_path = metadata.get(
+                "file",
+                ""
             )
 
-            if key not in seen:
+            if not file_path:
+                continue
 
-                seen.add(key)
-                unique.append(match)
+            if file_path not in grouped_by_file:
 
-        matches = unique
+                grouped_by_file[
+                    file_path
+                ] = []
+
+            grouped_by_file[
+                file_path
+            ].append(
+                chunk
+            )
+
+        # ----------------------------------------------------
+        # 5. Prioritize important files
+        # ----------------------------------------------------
+
+        important_names = {
+
+            "app.py",
+            "main.py",
+            "server.py",
+            "server.js",
+            "server.mjs",
+            "index.js",
+            "index.ts",
+            "package.json",
+            "requirements.txt",
+            "config.py",
+
+        }
+
+        selected_chunks = []
+        selected_files = set()
+
+        # ----------------------------------------------------
+        # 6. Important root/application files
+        # ----------------------------------------------------
+
+        for file_path, file_chunks in (
+            grouped_by_file.items()
+        ):
+
+            normalized = file_path.replace(
+                "\\",
+                "/"
+            )
+
+            file_name_only = (
+                normalized
+                .split("/")[-1]
+                .lower()
+            )
+
+            if file_name_only in {
+                name.lower()
+                for name in important_names
+            }:
+
+                selected_chunks.extend(
+                    file_chunks[:1]
+                )
+
+                selected_files.add(
+                    normalized.lower()
+                )
+
+        # ----------------------------------------------------
+        # 7. Representative nested files
+        # ----------------------------------------------------
+
+        directory_limits = {
+
+            "templates/": 5,
+            "utils/": 4,
+            "services/": 3,
+            "routes/": 3,
+            "controllers/": 3,
+            "components/": 3,
+            "pages/": 3,
+
+        }
+
+        for directory, max_files in (
+            directory_limits.items()
+        ):
+
+            count = 0
+
+            for file_path, file_chunks in (
+                grouped_by_file.items()
+            ):
+
+                normalized = (
+                    file_path
+                    .replace("\\", "/")
+                    .lower()
+                )
+
+                if not normalized.startswith(
+                    directory
+                ):
+                    continue
+
+                if normalized in selected_files:
+                    continue
+
+                selected_chunks.append(
+                    file_chunks[0]
+                )
+
+                selected_files.add(
+                    normalized
+                )
+
+                count += 1
+
+                if count >= max_files:
+                    break
+
+        # ----------------------------------------------------
+        # 8. Add semantic matches
+        # ----------------------------------------------------
+
+        selected_chunks.extend(
+            semantic_matches[:5]
+        )
+
+        # ----------------------------------------------------
+        # 9. Hard limit
+        # ----------------------------------------------------
+
+        selected_chunks = (
+            selected_chunks[:20]
+        )
+
+        # ----------------------------------------------------
+        # 10. Combine documentation + source
+        # ----------------------------------------------------
+
+        matches = (
+            documentation_chunks
+            + selected_chunks
+        )
+
+        # ----------------------------------------------------
+        # 11. Remove duplicates
+        # ----------------------------------------------------
+
+        matches = _deduplicate_matches(
+            matches
+        )
 
         retrieval_mode = "project-overview"
+
+        print(
+            f"Project overview retrieval: "
+            f"{len(matches)} chunks from "
+            f"{len(grouped_by_file)} source files."
+        )
+
 
     # ========================================================
     # CASE 4: NORMAL SEMANTIC SEARCH
@@ -479,6 +626,7 @@ def answer_question(
 
         retrieval_mode = "semantic"
 
+
     # ========================================================
     # NO RESULTS
     # ========================================================
@@ -496,6 +644,7 @@ def answer_question(
             "sources": [],
         }
 
+
     # ========================================================
     # BUILD CONTEXT
     # ========================================================
@@ -504,8 +653,9 @@ def answer_question(
         matches
     )
 
+
     # ========================================================
-    # DIFFERENT INSTRUCTIONS
+    # AGENT INSTRUCTIONS
     # ========================================================
 
     if retrieval_mode == "architecture":
@@ -514,7 +664,7 @@ def answer_question(
 The user is asking about the architecture or
 data flow of the repository.
 
-You have been given BOTH documentation and
+You have been given documentation and
 source-code evidence.
 
 Determine what the project claims to do and
@@ -561,6 +711,7 @@ Then explain:
 3. Any gap between the two.
 
 IMPORTANT:
+
 Never invent a backend, API, database,
 sensor integration, or data flow that is
 not supported by the source code.
@@ -585,6 +736,7 @@ Explain important:
 - responsibilities
 
 Use the supplied code only.
+
 Do not invent functionality.
 """
 
@@ -594,6 +746,13 @@ Do not invent functionality.
 The user wants to understand the project
 at a high level.
 
+You have been given:
+
+1. README/documentation
+2. Semantic search results
+3. Representative source files from
+   different parts of the repository
+
 Use the README/documentation to explain:
 
 - project purpose
@@ -601,7 +760,7 @@ Use the README/documentation to explain:
 - intended users
 - major features
 
-Then use source code to explain what is
+Then use the source code to explain what is
 actually implemented.
 
 VERY IMPORTANT:
@@ -609,14 +768,38 @@ VERY IMPORTANT:
 Separate:
 
 DOCUMENTATION CLAIMS
+
 from
+
 IMPLEMENTATION EVIDENCE.
 
-If the README says something that is not
-visible in the source code, say so.
+If the README claims a feature but the
+supplied source evidence does not verify it,
+say:
 
-Do not claim that a feature is implemented
-just because the README mentions it.
+"No implementation evidence was found in
+the retrieved source code."
+
+Do NOT say that a feature definitely does
+not exist merely because one file was not
+retrieved.
+
+Look at evidence from nested folders such as:
+
+- templates/
+- utils/
+- services/
+- routes/
+- components/
+- pages/
+
+For important features, mention the actual
+file and line range.
+
+Do not invent files, functions, APIs,
+databases, routes, or behavior.
+
+Be concise but useful.
 """
 
     else:
@@ -631,6 +814,7 @@ Do not invent files, functions, variables,
 APIs, dependencies, or behavior.
 """
 
+
     # ========================================================
     # GROQ PROMPT
     # ========================================================
@@ -642,6 +826,7 @@ system.
 {instruction}
 
 USER QUESTION:
+
 {question}
 
 REPOSITORY CONTENT:
@@ -650,15 +835,20 @@ REPOSITORY CONTENT:
 
 RULES:
 
+- Return ONLY the final answer.
+- Do NOT include <think> tags.
+- Do NOT reveal internal reasoning.
+- Do NOT describe your thinking process.
 - Be technically precise.
 - Use actual repository evidence.
 - Mention file names and line ranges.
 - Do not hallucinate missing functionality.
 - Clearly distinguish README claims from
   implementation evidence.
-- If something is not present, explicitly
-  say that it was not found.
+- If something cannot be verified from the
+  supplied repository evidence, say so.
 """
+
 
     # ========================================================
     # GROQ
@@ -686,7 +876,7 @@ RULES:
             .completions
             .create(
 
-                model="llama-3.3-70b-versatile",
+                model="qwen/qwen3.6-27b",
 
                 messages=[
                     {
@@ -697,15 +887,21 @@ RULES:
 
                 temperature=0.1,
 
-                max_tokens=1800,
+                max_tokens=1200,
             )
         )
 
-        answer = (
+        raw_answer = (
             completion
             .choices[0]
             .message
             .content
+        )
+
+        # Clean Qwen reasoning before sending
+        # the answer to the frontend
+        answer = clean_model_output(
+            raw_answer
         )
 
     except Exception as exc:
@@ -719,6 +915,7 @@ RULES:
 
             "sources": _sources(matches),
         }
+
 
     # ========================================================
     # FINAL RESPONSE

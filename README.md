@@ -33,7 +33,7 @@ The platform can:
 Users can securely sign in to access the CodebaseIQ platform.
 
 <p align="center">
-  <img src="assets/login.png" alt="CodebaseIQ Login" width="600"/>
+  <img src="backend/services/assets/login.png" alt="CodebaseIQ Login" width="600"/>
 </p>
 
 ---
@@ -47,7 +47,7 @@ During indexing, the repository is processed and its source files are prepared f
 Indexed repositories are displayed in the sidebar and can be selected for further interaction.
 
 <p align="center">
-  <img src="assets/indexing.png" alt="Repository Indexing" width="800"/>
+  <img src="backend/services/assets/indexing.png" alt="Repository Indexing" width="800"/>
 </p>
 
 ---
@@ -67,14 +67,14 @@ Example questions include:
 * Where is a specific feature implemented?
 
 <p align="center">
-  <img src="assets/quesansagent.png" alt="Codebase Q&A Agent" width="800"/>
+  <img src="backend/services/assets/quesansagent.png" alt="Codebase Q&A Agent" width="800"/>
 </p>
 
 ---
 
 ## 🐛 Bug Finder Agent
 
-The Bug Finder agent analyzes the relevant source code and identifies potential:
+The Bug Finder agent analyzes relevant source code and identifies potential:
 
 * Bugs
 * Security vulnerabilities
@@ -84,7 +84,7 @@ The Bug Finder agent analyzes the relevant source code and identifies potential:
 The generated response is supported by references to relevant files and code sections.
 
 <p align="center">
-  <img src="assets/bugagent.png" alt="Bug Finder Agent" width="800"/>
+  <img src="backend/services/assets/bugagent.png" alt="Bug Finder Agent" width="800"/>
 </p>
 
 ---
@@ -102,7 +102,7 @@ It can provide insights into:
 * Supporting code references
 
 <p align="center">
-  <img src="assets/docsagent.png" alt="Documentation Agent" width="800"/>
+  <img src="backend/services/assets/docsagent.png" alt="Documentation Agent" width="800"/>
 </p>
 
 ---
@@ -221,22 +221,24 @@ The Documentation Agent generates explanations and documentation for important f
 ```text
 CodebaseIQ/
 │
-├── assets/
-│   ├── bugagent.png
-│   ├── docsagent.png
-│   ├── indexing.png
-│   ├── login.png
-│   └── quesansagent.png
-│
 ├── backend/
-│   ├── agents/
 │   ├── services/
-│   ├── utils/
+│   │   ├── assets/
+│   │   │   ├── bugagent.png
+│   │   │   ├── docsagent.png
+│   │   │   ├── indexing.png
+│   │   │   ├── login.png
+│   │   │   └── quesansagent.png
+│   │   │
+│   │   ├── bug_agent.py
+│   │   ├── docs_agent.py
+│   │   ├── orchestrator.py
+│   │   └── qa_agent.py
+│   │
 │   └── main.py
 │
 ├── frontend/
 │   ├── src/
-│   ├── components/
 │   └── ...
 │
 ├── requirements.txt
@@ -251,7 +253,7 @@ CodebaseIQ/
 ## 1. Clone the Repository
 
 ```bash
-git clone https://github.com/Tarandeepkaur88/CodebaseIQ.git
+git clone https://github.com/Vanshgupta3/CodebaseIQ.git
 cd CodebaseIQ
 ```
 
@@ -287,7 +289,7 @@ pip install -r requirements.txt
 
 Create a `.env` file based on the `.env.example` file.
 
-Add your required API keys:
+Add your required API key:
 
 ```env
 GROQ_API_KEY=your_groq_api_key

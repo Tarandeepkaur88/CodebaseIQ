@@ -8,6 +8,7 @@ from groq import Groq
 
 from backend.services.search import RepositorySearch
 
+
 load_dotenv()
 
 
@@ -16,10 +17,12 @@ load_dotenv()
 # ============================================================
 
 def _sources(matches: list[dict]) -> list[dict]:
+
     seen = set()
     sources = []
 
     for match in matches:
+
         metadata = match.get("metadata", {})
 
         source = {
@@ -35,10 +38,55 @@ def _sources(matches: list[dict]) -> list[dict]:
         )
 
         if key not in seen:
+
             seen.add(key)
+
             sources.append(source)
 
     return sources
+
+
+# ============================================================
+# CLEAN LLM RESPONSE
+# ============================================================
+
+def _clean_llm_response(content: str) -> str:
+    """
+    Remove internal reasoning such as:
+
+    <think>
+    ...
+    </think>
+
+    and return only the final documentation.
+    """
+
+    if not content:
+        return ""
+
+    content = content.strip()
+
+    # Remove complete <think>...</think> blocks
+    content = re.sub(
+        r"<think>.*?</think>",
+        "",
+        content,
+        flags=re.DOTALL | re.IGNORECASE,
+    )
+
+    # Safety case: model starts with <think> but
+    # does not properly close it.
+    if content.lower().startswith("<think>"):
+
+        closing_tag = content.lower().find("</think>")
+
+        if closing_tag != -1:
+
+            content = content[
+                closing_tag + len("</think>"):
+            ]
+
+    return content.strip()
 
 
 # ============================================================
@@ -78,25 +126,32 @@ def _normalize_target(target: str) -> str:
 
     # Common natural-language prefixes
     patterns = [
+
         r"^explain\s+the\s+file\s+",
         r"^explain\s+file\s+",
         r"^explain\s+the\s+",
         r"^explain\s+",
+
         r"^document\s+the\s+file\s+",
         r"^document\s+file\s+",
         r"^document\s+the\s+",
         r"^document\s+",
+
         r"^generate\s+documentation\s+for\s+the\s+file\s+",
         r"^generate\s+documentation\s+for\s+",
+
         r"^generate\s+docs\s+for\s+the\s+file\s+",
         r"^generate\s+docs\s+for\s+",
+
         r"^docs\s+for\s+the\s+file\s+",
         r"^docs\s+for\s+",
+
         r"^documentation\s+for\s+the\s+file\s+",
         r"^documentation\s+for\s+",
     ]
 
     for pattern in patterns:
+
         cleaned = re.sub(
             pattern,
             "",
@@ -105,13 +160,42 @@ def _normalize_target(target: str) -> str:
         )
 
         if cleaned != target:
+
             target = cleaned.strip()
+
             break
 
-    # Remove trailing natural-language punctuation
+    # Remove trailing punctuation
     target = target.strip("`'\" .,!?")
 
     return target
+
+
+# ============================================================
+# CHECK IF TARGET LOOKS LIKE AN ACTUAL FILENAME
+# ============================================================
+
+def _looks_like_filename(target: str) -> bool:
+    """
+    Returns True only if the target looks like a real file.
+    """
+
+    if not target:
+        return False
+
+    pattern = (
+        r"\.(?:py|js|jsx|mjs|cjs|ts|tsx|"
+        r"html|htm|css|scss|sass|less|json|yaml|yml|xml|"
+        r"java|go|rb|cpp|c|h|hpp|cs|php|rs|sql|md|rst)$"
+    )
+
+    return bool(
+        re.search(
+            pattern,
+            target.strip(),
+            re.IGNORECASE,
+        )
+    )
 
 
 # ============================================================
@@ -126,10 +210,12 @@ def _get_readme(
     documentation = []
 
     readme_names = [
+
         "README.md",
         "README.rst",
         "readme.md",
         "readme.rst",
+
     ]
 
     for name in readme_names:
@@ -337,17 +423,7 @@ def _get_specific_file(
 
         return filtered_matches
 
-    # IMPORTANT:
-    # Do NOT return unrelated semantic results.
-    #
-    # This prevents:
-    #
-    # server.mjs
-    #      ↓
-    # dsa.js
-    #      ↓
-    # WRONG documentation
-    #
+    # Do not return unrelated semantic results
     return []
 
 
@@ -360,6 +436,7 @@ def _remove_duplicates(
 ) -> list[dict]:
 
     unique_matches = []
+
     seen = set()
 
     for match in matches:
@@ -465,18 +542,38 @@ def generate_docs(
     # ========================================================
 
     is_project_documentation = (
+
         target is None
+
         or
+
         target.strip().lower()
+
         in {
+
             "project",
             "whole project",
             "entire project",
             "complete project",
             "overview",
             "project overview",
+
         }
+
     )
+
+    is_specific_file = (
+
+        not is_project_documentation
+
+        and
+
+        _looks_like_filename(
+            _normalize_target(target)
+        )
+
+    )
+
 
     # ========================================================
     # PROJECT DOCUMENTATION
@@ -489,18 +586,10 @@ def generate_docs(
             "for the entire project."
         )
 
-        # ----------------------------------------------------
-        # README
-        # ----------------------------------------------------
-
         readme_matches = _get_readme(
             search,
             repo_url,
         )
-
-        # ----------------------------------------------------
-        # CODE
-        # ----------------------------------------------------
 
         code_matches = search.query(
             repo_url,
@@ -523,11 +612,12 @@ def generate_docs(
 
         target_title = "Entire Project"
 
+
     # ========================================================
-    # SPECIFIC FILE / MODULE
+    # SPECIFIC FILE
     # ========================================================
 
-    else:
+    elif is_specific_file:
 
         original_target = target
 
@@ -556,6 +646,45 @@ def generate_docs(
 
         target_title = target
 
+
+    # ========================================================
+    # TOPIC / GENERAL REQUEST
+    # ========================================================
+
+    else:
+
+        original_target = target
+
+        target = (
+            _normalize_target(target)
+            or original_target
+        )
+
+        print(
+            f"\nTreating as topic: {target}"
+        )
+
+        readme_matches = _get_readme(
+            search,
+            repo_url,
+        )
+
+        code_matches = search.query(
+            repo_url,
+            target,
+            limit=limit,
+        )
+
+        matches = (
+            readme_matches
+            + code_matches
+        )
+
+        retrieval_mode = "topic"
+
+        target_title = target
+
+
     # ========================================================
     # REMOVE DUPLICATES
     # ========================================================
@@ -563,6 +692,7 @@ def generate_docs(
     matches = _remove_duplicates(
         matches
     )
+
 
     # ========================================================
     # NO RESULTS
@@ -573,6 +703,7 @@ def generate_docs(
         if retrieval_mode == "specific":
 
             return {
+
                 "target": target,
 
                 "documentation": (
@@ -587,19 +718,24 @@ def generate_docs(
                 ),
 
                 "sources": [],
+
             }
 
         return {
+
             "target": target,
 
             "documentation": (
                 "No indexed repository content "
-                "was found. Please index the "
-                "repository first."
+                "was found for this request. Please "
+                "index the repository first, or try "
+                "rephrasing your request."
             ),
 
             "sources": [],
+
         }
+
 
     # ========================================================
     # BUILD CONTEXT
@@ -608,6 +744,7 @@ def generate_docs(
     context = _build_context(
         matches
     )
+
 
     # ========================================================
     # PROJECT PROMPT
@@ -652,16 +789,53 @@ explicitly list it here.
 
 Never turn a README claim into an implementation
 fact.
-
-Use phrases such as:
-
-"According to the README..."
-
-"The inspected source code implements..."
-
-"The provided repository content does not
-provide evidence of..."
 """
+
+
+    # ========================================================
+    # TOPIC PROMPT
+    # ========================================================
+
+    elif retrieval_mode == "topic":
+
+        instructions = f"""
+You are documenting a SPECIFIC TOPIC requested
+by the user:
+
+{target_title}
+
+You have been given README/documentation
+evidence (if available) and source-code evidence
+relevant to this topic.
+
+Stay focused specifically on: {target_title}
+
+Do NOT describe the entire project in general.
+Only cover what is relevant to this topic.
+
+Separate:
+
+## Documentation Claims
+
+What the README/documentation says about this
+topic, if anything.
+
+## Implementation Evidence
+
+What the actual source code shows about this
+topic, with file names and line ranges.
+
+## Implementation Gaps
+
+If insufficient evidence was retrieved to fully
+cover this topic, explicitly say so instead of
+guessing.
+
+Never invent frameworks, libraries, files, or
+functionality not present in the supplied
+evidence.
+"""
+
 
     # ========================================================
     # SPECIFIC FILE PROMPT
@@ -673,6 +847,7 @@ provide evidence of..."
 You are documenting ONE SPECIFIC FILE.
 
 REQUESTED FILE:
+
 {target}
 
 The repository evidence supplied below should
@@ -706,6 +881,7 @@ Explain:
 Use ONLY the supplied implementation evidence.
 """
 
+
     # ========================================================
     # FINAL PROMPT
     # ========================================================
@@ -718,11 +894,20 @@ Your job is to create accurate developer
 documentation for CodebaseIQ.
 
 TARGET:
+
 {target_title}
 
 {instructions}
 
-IMPORTANT RULES:
+IMPORTANT OUTPUT RULES:
+
+- Return ONLY the final documentation.
+- Do NOT include <think> tags.
+- Do NOT reveal internal reasoning.
+- Do NOT describe your thinking process.
+- Start directly with "# Overview".
+
+IMPORTANT FACTUAL RULES:
 
 - Use ONLY the supplied repository content.
 - Do not invent files.
@@ -814,6 +999,7 @@ Remember:
 DOCUMENTATION CLAIM != IMPLEMENTATION FACT.
 """
 
+
     # ========================================================
     # GROQ
     # ========================================================
@@ -839,7 +1025,8 @@ DOCUMENTATION CLAIM != IMPLEMENTATION FACT.
             .chat
             .completions
             .create(
-                model="llama-3.3-70b-versatile",
+
+                model="qwen/qwen3.6-27b",
 
                 messages=[
                     {
@@ -851,19 +1038,32 @@ DOCUMENTATION CLAIM != IMPLEMENTATION FACT.
                 temperature=0.2,
 
                 max_tokens=3000,
+
             )
         )
 
-        documentation = (
+
+        # Get raw model response
+
+        raw_documentation = (
             completion
             .choices[0]
             .message
             .content
         )
 
+
+        # Remove <think> reasoning
+
+        documentation = _clean_llm_response(
+            raw_documentation
+        )
+
+
     except Exception as exc:
 
         return {
+
             "target": target,
 
             "documentation":
@@ -871,13 +1071,16 @@ DOCUMENTATION CLAIM != IMPLEMENTATION FACT.
 
             "sources":
                 _sources(matches),
+
         }
+
 
     # ========================================================
     # RETURN
     # ========================================================
 
     return {
+
         "target": target,
 
         "documentation":
@@ -885,6 +1088,7 @@ DOCUMENTATION CLAIM != IMPLEMENTATION FACT.
 
         "sources":
             _sources(matches),
+
     }
 
 
@@ -895,10 +1099,14 @@ DOCUMENTATION CLAIM != IMPLEMENTATION FACT.
 if __name__ == "__main__":
 
     result = generate_docs(
-        repo_url=
-            "https://github.com/Tarandeepkaur88/ReZniX",
 
-        target=None,
+        repo_url=(
+            "https://github.com/"
+            "Tarandeepkaur88/ReZniX"
+        ),
+
+        target="tech stack of frontend and backend",
+
     )
 
     print(
